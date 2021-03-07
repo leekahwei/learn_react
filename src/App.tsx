@@ -12,6 +12,8 @@ import Col from 'react-bootstrap/Col';
 import { FormCheckType } from 'react-bootstrap/esm/FormCheck';
 import Modal from 'react-bootstrap/Modal';
 import swal from 'sweetalert';
+import axios from 'axios';
+import { Table } from 'react-bootstrap';
 
 type State = {
   showModal: boolean;
@@ -22,9 +24,20 @@ type State = {
   checked: boolean;
   searchedText: string;
 }
+type Detail = {
+  text: string;
+  selection: number;
+  radio: string;
+  textarea: string;
+  checked: boolean
+}
+const URL = 'http://127.0.0.1:8000/'
 class App extends React.Component<{}, State>{
+  private searchedResult: Detail[];
+
   constructor(props: any) {
     super(props);
+    this.searchedResult = [];
     this.state = {
       showModal: false,
       text: '',
@@ -55,10 +68,30 @@ class App extends React.Component<{}, State>{
         icon: 'success'
       }).then((value) => {
         if(value) {
-          setTimeout(()=> {
-            // eslint-disable-next-line no-restricted-globals
-            location.reload();
-          },1000)
+          axios.post(`${URL}demo/`, {
+            text: this.state.text,
+            selection: parseInt(this.state.selected),
+            radio: this.state.radio,
+            textarea: this.state.textarea,
+            checked: this.state.checked
+          }).then((response)=> {
+            if(response.status === 200) {
+              swal({
+                title: 'Submission Success!',
+                text: 'You\'ve successfully submitted the details',
+                icon: 'success'
+              }).then((value) => {
+                // eslint-disable-next-line no-restricted-globals
+                location.reload();
+              })
+            }
+          }).catch((error) => {
+            swal({
+              title: 'Submission Failed!',
+              text: 'Something weird happened, that\'s awkward',
+              icon: 'error',
+            })
+          })
         }
       })
     }else{
@@ -66,6 +99,16 @@ class App extends React.Component<{}, State>{
         title: 'Details incomplete!',
         text: 'Some fields are incomplete, please make sure all fields are filled properly',
         icon: 'error'
+      })
+    }
+  }
+
+  search = () => {
+    if(this.state.searchedText !== '') {
+      axios.get(`${URL}demo/search?searchText=${this.state.searchedText}`)
+      .then((response) => {
+        this.searchedResult = response.data;
+        this.showModal();
       })
     }
   }
@@ -97,17 +140,50 @@ class App extends React.Component<{}, State>{
   render() {
     return (
       <>
-      <Modal show={this.state.showModal} onHide={this.hideModal}>
+      <Modal show={this.state.showModal} onHide={this.hideModal} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Search Modal</Modal.Title>
         </Modal.Header>
-        <Modal.Body>{this.state.searchedText}</Modal.Body>
+        <Modal.Body>
+          {
+            this.searchedResult.length > 0 ?
+            <div className="table-wrapper">
+              <Table striped bordered hover>
+                <thead>
+                  <tr>
+                    <th>Text</th>
+                    <th>Selection</th>
+                    <th>Radio</th>
+                    <th>Textarea</th>
+                    <th>Checked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {
+                  this.searchedResult.map((result, index) => (
+                    <tr key={index}>
+                      <td>{result.text}</td>
+                      <td>{result.selection}</td>
+                      <td>{result.radio}</td>
+                      <td>{result.textarea}</td>
+                      <td style={{textAlign: "center"}}>
+                        <Form.Check type="checkbox" checked={result.checked} disabled={true}/>
+                      </td>
+                    </tr>
+                  ))
+                }
+                </tbody>
+              </Table>
+            </div>
+            : 
+            <div className="no-result">
+              <h3>No Results</h3>
+            </div>
+          }
+        </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={this.hideModal}>
             Close
-          </Button>
-          <Button variant="primary" onClick={this.hideModal}>
-            Save Changes
           </Button>
         </Modal.Footer>
       </Modal>
@@ -128,7 +204,7 @@ class App extends React.Component<{}, State>{
           </Nav>
           <Form inline>
             <FormControl type="text" placeholder="Search" className="mr-sm-2" value={this.state.searchedText} onChange={this.updateSearchText}/>
-            <Button variant="outline-success" onClick={this.showModal}>Search</Button>
+            <Button variant="outline-success" onClick={this.search}>Search</Button>
           </Form>
         </Navbar.Collapse>
       </Navbar>
